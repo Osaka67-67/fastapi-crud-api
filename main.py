@@ -4,21 +4,51 @@
 #U#update the post
 #D#delete the post
 
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI , status , HTTPException
 from pydantic import BaseModel
 import random
+import psycopg
+from psycopg.rows import dict_row
+from time import sleep
+
 
 app=FastAPI()
+load_dotenv()
+
+#in memory database -.-
 
 database = [
     {"title": "My First Post", "content": "Hello world", "id": 1},
     {"title": "Learning FastAPI", "content": "It is going great!", "id": 2}
 ]
 
+
+while True:
+
+    try:
+        conn = psycopg.connect(
+            host=os.getenv("host"),
+            dbname=os.getenv("dbname"),
+            user=os.getenv("user"),
+            password=os.getenv("password"),
+            row_factory=dict_row      
+        )
+        cursor = conn.cursor()
+        print("Database connection was successful")
+        break
+
+    except Exception as e:
+        print(f"Database connection failed: {e}")
+        sleep(2)
+
+
 class Check_format(BaseModel):
     title:str
     content:str | None = None
     id:int | None = None
+    published:bool = True
 
 
 def generate_id():
@@ -35,12 +65,11 @@ def find_post(id):
 
 
 @app.post("/posts",status_code=status.HTTP_201_CREATED)
-def create_posts(usr_data:Check_format):
-    usr_data_dict=usr_data.model_dump()
-    database.append(usr_data_dict)
-    generate_id()
-    print(database)
-    return{"post added sucessfully":usr_data_dict}
+def create_posts(posts:Check_format):
+    cursor.execute(""" INSERT INTO posts (title,content,published) VALUES (%s, %s ,%s) RETURNING * """,(posts.title,posts.content,posts.published))
+    new_post=cursor.fetchone()
+    conn.commit()
+    return{"post added sucessfully":new_post}
     
 #R#retreiving one individual post
 
@@ -56,7 +85,10 @@ def get_post_by_id(id:int):
 
 @app.get("/posts")
 def get_all_posts():
-    return {"posts":database}
+    cursor.execute(""" SELECT * FROM posts""")
+    posts=cursor.fetchall()
+    print(posts)
+    return {"posts":posts}
 
 def find_index(id):
     for i,j in enumerate(database):#i is index and j is dict
