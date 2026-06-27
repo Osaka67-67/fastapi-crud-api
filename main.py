@@ -78,7 +78,7 @@ def for_deleting_posts(id:int):
 
 @app.put("/posts/{id}")
 def for_updating_posts(id:int,post:Check_format):
-    cursor.execute(""" UPDATE posts SET title = %s, content = %s, published = %s  RETURNING *""",(post.title,post.content,post.published))
+    cursor.execute(""" UPDATE posts SET title = %s, content = %s, published = %s  WHERE id = %s  RETURNING *""",(post.title,post.content,post.published,id))
     updated_post=cursor.fetchone()
     conn.commit()
 
