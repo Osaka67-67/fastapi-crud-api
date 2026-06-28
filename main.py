@@ -1,16 +1,22 @@
 #CRUD api database:postgres use psycogp for now (will use orm (this is learning phase rn))
  
-from fastapi import FastAPI , status , HTTPException
+from fastapi import FastAPI , status , HTTPException ,Depends
 from pydantic import BaseModel
-import random
 import psycopg
 from psycopg.rows import dict_row
 from time import sleep
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 import os
+import models
+from database import engine,get_db
+from sqlalchemy import select
+
+models.Base.metadata.create_all(bind=engine)
 
 app=FastAPI()
 load_dotenv()
+
 
 while True:
     try:
@@ -35,6 +41,14 @@ class Check_format(BaseModel):
     id:int | None = None
     published:bool = True
 
+
+@app.get("/sqlalchemy")
+def test_posts(db:Session=Depends(get_db)):
+    statement=select(models.Post)
+    posts = db.scalars(statement).all()
+    return{"data":posts}
+
+
 #C#Creating posts    
 
 @app.post("/posts",status_code=status.HTTP_201_CREATED)
@@ -47,7 +61,7 @@ def create_posts(posts:Check_format):
 #R#retreiving one individual post
 
 @app.get("/posts/{id}")
-def get_post_by_id(id:int):
+def get_post_by_id(id:int): 
    cursor.execute(""" SELECT * FROM posts WHERE id = %s ;""",[id])
    get_post=cursor.fetchone()
    if get_post is None:
