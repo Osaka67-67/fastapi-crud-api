@@ -52,16 +52,23 @@ def test_posts(db:Session=Depends(get_db)):
 #C#Creating posts    
 
 @app.post("/posts",status_code=status.HTTP_201_CREATED)
-def create_posts(posts:Check_format):
-    cursor.execute("""INSERT INTO posts (title,content,published) VALUES (%s,%s,%s) RETURNING *""",(posts.title,posts.content,posts.published))
-    created_post=cursor.fetchone()
-    conn.commit()
-    return{"data":created_post}
+def create_posts(post:Check_format,db: Session = Depends(get_db)):
+    new_post=models.Post(
+        title=post.title,
+        content=post.content,
+        published=post.published,
+    )
+    db.add(new_post)
+    db.commit()
+    db.refresh(new_post)
+    return {"data": new_post}
+    
 
 #R#retreiving one individual post
 
 @app.get("/posts/{id}")
-def get_post_by_id(id:int): 
+def get_post_by_id(id:int,db: Session = Depends(get_db)): 
+   db.get()
    cursor.execute(""" SELECT * FROM posts WHERE id = %s ;""",[id])
    get_post=cursor.fetchone()
    if get_post is None:
