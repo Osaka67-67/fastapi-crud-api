@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 import os
 import models
 from database import engine,get_db
-from sqlalchemy import select
+from sqlalchemy import select,delete,update
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -42,11 +42,7 @@ class Check_format(BaseModel):
     published:bool = True
 
 
-@app.get("/sqlalchemy")
-def test_posts(db:Session=Depends(get_db)):
-    statement=select(models.Post)
-    posts = db.scalars(statement).all()
-    return{"data":posts}
+
 
 
 #C#Creating posts    
@@ -68,44 +64,47 @@ def create_posts(post:Check_format,db: Session = Depends(get_db)):
 
 @app.get("/posts/{id}")
 def get_post_by_id(id:int,db: Session = Depends(get_db)): 
-   db.get()
-   cursor.execute(""" SELECT * FROM posts WHERE id = %s ;""",[id])
-   get_post=cursor.fetchone()
-   if get_post is None:
+   statement=select(models.Post).where(models.Post.id==id)
+   post = db.scalars(statement).first()
+   if post is None:
        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"id with {id} does not exist")
-   return get_post
+   return {"data":post} 
 
 #R#getting all posts #get req
 
 @app.get("/posts")
-def get_all_posts():
-    cursor.execute("""SELECT * FROM posts;""")
-    get_posts=cursor.fetchall()
-    return{"data":get_posts}
+def test_posts(db:Session=Depends(get_db)):
+    statement=select(models.Post)
+    posts = db.scalars(statement).all()
+    return{"data":posts}
 
 #D#delete the post
 
 @app.delete("/posts/{id}")
-def for_deleting_posts(id:int):
-   cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING *""",(id,))
-   deleted_post=cursor.fetchone()
-   conn.commit()
+def for_deleting_posts(id:int,db:Session=Depends(get_db)):
+   statement=delete(models.Post).where(models.Post.id==id).returning(models.Post)
+   deleted_post = db.scalars(statement).first()
+
    if deleted_post is None:
        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id {id} does not exist")
    
-   return{"deleted post sucessfully":deleted_post}
+   db.commit()
+   return{"deleted post":deleted_post} #idk why but its not returning back the deleted_post
+
 
 #U#update the post
 
 @app.put("/posts/{id}")
-def for_updating_posts(id:int,post:Check_format):
-    cursor.execute(""" UPDATE posts SET title = %s, content = %s, published = %s  WHERE id = %s  RETURNING *""",(post.title,post.content,post.published,id))
-    updated_post=cursor.fetchone()
-    conn.commit()
-
+def for_updating_posts(id:int,post:Check_format,db:Session=Depends(get_db)):
+    statement=update(models.Post).where(models.Post.id==id).values(title=post.title,content=post.content,published=post.published).returning(models.Post)
+    
+    updated_post = db.scalars(statement).first()
+    
     if updated_post is None:
        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id {id} does not exist")
+    db.commit()
     return {"message": "Updated successfully", "updated_post": updated_post}
+
 
 
     
