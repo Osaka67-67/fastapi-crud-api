@@ -1,14 +1,14 @@
 #CRUD api database:postgres use psycogp for now (will use orm (this is learning phase rn))
- 
+from typing import List
 from fastapi import FastAPI , status , HTTPException ,Depends
-from pydantic import BaseModel
+# from pydantic import BaseModel
 import psycopg
 from psycopg.rows import dict_row
 from time import sleep
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 import os
-import models
+import models , schemas
 from database import engine,get_db
 from sqlalchemy import select,delete,update
 
@@ -35,48 +35,34 @@ while True:
         print("something wrong")
         sleep(2)
 
-class Check_format(BaseModel):
-    title:str
-    content:str | None = None
-    id:int | None = None
-    published:bool = True
-
-
-
-
-
 #C#Creating posts    
 
-@app.post("/posts",status_code=status.HTTP_201_CREATED)
-def create_posts(post:Check_format,db: Session = Depends(get_db)):
-    new_post=models.Post(
-        title=post.title,
-        content=post.content,
-        published=post.published,
-    )
+@app.post("/posts",status_code=status.HTTP_201_CREATED,response_model=schemas.Post)
+def create_posts(post:schemas.PostCreate,db: Session = Depends(get_db)):
+    new_post=models.Post(**post.model_dump())
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
-    return {"data": new_post}
+    return new_post
     
 
 #R#retreiving one individual post
 
-@app.get("/posts/{id}")
+@app.get("/posts/{id}",response_model=schemas.Post)
 def get_post_by_id(id:int,db: Session = Depends(get_db)): 
    statement=select(models.Post).where(models.Post.id==id)
    post = db.scalars(statement).first()
    if post is None:
        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"id with {id} does not exist")
-   return {"data":post} 
+   return post
 
 #R#getting all posts #get req
 
-@app.get("/posts")
+@app.get("/posts",response_model=List[schemas.Post])
 def test_posts(db:Session=Depends(get_db)):
     statement=select(models.Post)
     posts = db.scalars(statement).all()
-    return{"data":posts}
+    return posts
 
 #D#delete the post
 
@@ -89,22 +75,20 @@ def for_deleting_posts(id:int,db:Session=Depends(get_db)):
        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id {id} does not exist")
    
    db.commit()
-   return{"deleted post":deleted_post} #idk why but its not returning back the deleted_post
+   return deleted_post #idk why but its not returning back the deleted_post
 
 
 #U#update the post
 
-@app.put("/posts/{id}")
-def for_updating_posts(id:int,post:Check_format,db:Session=Depends(get_db)):
-    statement=update(models.Post).where(models.Post.id==id).values(title=post.title,content=post.content,published=post.published).returning(models.Post)
-    
+@app.put("/posts/{id}",response_model=schemas.Post)
+def for_updating_posts(id:int,post:schemas.PostCreate,db:Session=Depends(get_db)):
+    statement=update(models.Post).where(models.Post.id==id).values(**post.model_dump()).returning(models.Post)
     updated_post = db.scalars(statement).first()
-    
     if updated_post is None:
        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"post with id {id} does not exist")
     db.commit()
-    return {"message": "Updated successfully", "updated_post": updated_post}
+    return updated_post
 
 
 
-    
+     
